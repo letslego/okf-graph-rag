@@ -80,3 +80,9 @@ See `fly.toml` and `Dockerfile`.
 ## License
 
 Apache-2.0. Sample content is fictional demo data inspired by the OKF v0.2 patterns from Google Cloud's open-knowledge-format repository.
+
+## Access from corporate networks
+
+Some work networks block `*.fly.dev`. Use a free [Cloudflare Worker](./cloudflare/worker.js) reverse proxy (gives a `*.workers.dev` URL), or open the Fly demo on cellular.
+
+Phone / home: https://northstar-okf-rag.fly.dev/
