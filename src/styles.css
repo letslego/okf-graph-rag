@@ -532,9 +532,13 @@ section h2 {
 
 @media (min-width: 900px) {
   .artifacts-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
   }
+}
+
+.artifacts-grid > * {
+  min-width: 0;
 }
 
 .artifacts-grid select {
@@ -551,6 +555,11 @@ section h2 {
   margin-top: 0.75rem;
   max-height: min(520px, 60vh);
   overflow: auto;
+}
+
+#doc-view {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .site-footer {
