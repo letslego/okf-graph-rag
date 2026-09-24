@@ -4,6 +4,8 @@ Interactive demo of [Google Open Knowledge Format (OKF) v0.2](https://github.com
 
 **Domain:** Northstar Commerce — retail analytics knowledge (revenue, gross margin, carrier reconciliation).
 
+**Live demo:** https://okf-graph-rag.fly.dev/
+
 ![Hero](docs/screenshots/hero.png)
 
 ## What this shows
