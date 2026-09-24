@@ -121,16 +121,16 @@ app.innerHTML = `
         Compare a source document chunked into the KV cache with the curated OKF concept it should ground against —
         including frontmatter layers.
       </p>
-      <div class="split browser">
+      <div class="artifacts-grid">
         <div>
           <h3>Source documents (RAG)</h3>
           <select id="doc-select"></select>
-          <pre class="snippet" id="doc-view" style="margin-top:0.75rem;max-height:420px;overflow:auto"></pre>
+          <pre class="snippet artifact-pane" id="doc-view"></pre>
         </div>
         <div>
           <h3>OKF concepts</h3>
           <select id="okf-select"></select>
-          <div id="okf-view" style="margin-top:0.75rem"></div>
+          <div id="okf-view" class="artifact-pane"></div>
         </div>
       </div>
     </section>
@@ -380,7 +380,7 @@ async function init() {
       trustTier: string;
       layers: Record<string, unknown>;
       raw: string;
-    }>(`/api/okf/concepts/${encodeURIComponent(id)}`);
+    }>(`/api/okf/concept?id=${encodeURIComponent(id)}`);
     okfView.innerHTML = `
       <div class="snippet">
         <header>

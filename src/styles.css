@@ -525,22 +525,32 @@ section h2 {
   font-family: var(--font-display);
 }
 
-.browser {
+.artifacts-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
-.browser select,
-.browser button {
-  font: inherit;
+@media (min-width: 900px) {
+  .artifacts-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
 }
 
-.browser select {
+.artifacts-grid select {
+  width: 100%;
   background: rgba(0, 0, 0, 0.28);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0.65rem 0.8rem;
+  font: inherit;
+}
+
+.artifact-pane {
+  margin-top: 0.75rem;
+  max-height: min(520px, 60vh);
+  overflow: auto;
 }
 
 .site-footer {

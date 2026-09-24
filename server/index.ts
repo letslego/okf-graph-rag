@@ -120,6 +120,13 @@ app.get("/api/okf/concepts", (c) => {
   return c.json({ concepts });
 });
 
+app.get("/api/okf/concept", (c) => {
+  const id = String(c.req.query("id") ?? "").trim();
+  const concept = graph.concepts.get(id);
+  if (!concept) return c.json({ error: "not found" }, 404);
+  return c.json(concept);
+});
+
 app.get("/api/okf/concepts/:id{.+}", (c) => {
   const id = decodeURIComponent(c.req.param("id"));
   const concept = graph.concepts.get(id);
