@@ -2,6 +2,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: ".",
+  // GitHub project pages: https://letslego.github.io/okf-graph-rag/
+  base: process.env.VITE_BASE || "/",
   publicDir: "public",
   build: {
     outDir: "dist/web",
@@ -9,8 +11,5 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      "/api": "http://localhost:8080",
-    },
   },
 });

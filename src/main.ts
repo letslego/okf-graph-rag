@@ -1,45 +1,14 @@
 import "./styles.css";
-
-type Overview = {
-  product: string;
-  okfVersion: string;
-  usecases: Array<{ id: string; title: string; summary: string }>;
-  formats: Array<{ field: string; required: boolean; meaning: string }>;
-  stats: {
-    kvChunks: number;
-    sourceDocs: number;
-    okfConcepts: number;
-    okfEdges: number;
-  };
-};
-
-type QueryResult = {
-  query: string;
-  answer: string;
-  pipeline: Array<{ step: string; detail: string }>;
-  ragHits: Array<{
-    id: string;
-    docTitle: string;
-    sourcePath: string;
-    score: number;
-    snippet: string;
-  }>;
-  okfConcepts: Array<{
-    id: string;
-    title: string;
-    type: string;
-    status: string;
-    trustTier: string;
-    why: string;
-    layers: Record<string, unknown>;
-    bodySnippet: string;
-    rawSnippet: string;
-  }>;
-  graphPath: Array<{ from: string; to: string }>;
-};
+import corpus from "./corpus.json";
+import { answerQuery, type OkfConcept, type QueryResult, type RagChunk } from "./lib/query-engine";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("#app missing");
+
+const chunks = corpus.chunks as RagChunk[];
+const concepts = corpus.concepts as OkfConcept[];
+const edges = corpus.edges as Array<{ from: string; to: string; label: string }>;
+const sourceDocs = corpus.sourceDocs as Record<string, string>;
 
 app.innerHTML = `
   <div class="shell">
@@ -99,7 +68,7 @@ app.innerHTML = `
       <h2>Ask with RAG + OKF together</h2>
       <p class="lede">
         Submit a question. Watch the pipeline retrieve KV snippets, rank OKF concepts, expand the link graph,
-        and synthesize an answer with both narrative and curated layers.
+        and synthesize an answer with both layers visible.
       </p>
       <div class="demo-panel">
         <div class="demo-input">
@@ -139,19 +108,11 @@ app.innerHTML = `
       <p>
         Demo of <a href="https://github.com/GoogleCloudPlatform/open-knowledge-format" target="_blank" rel="noreferrer">Google Open Knowledge Format</a>
         combined with Graph RAG. Sample domain: Northstar Commerce retail analytics.
+        Runs fully in your browser from the published corpus.
       </p>
     </footer>
   </div>
 `;
-
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    ...init,
-  });
-  if (!res.ok) throw new Error(`${url} → ${res.status}`);
-  return res.json() as Promise<T>;
-}
 
 function renderMarkdownLite(text: string): string {
   return text
@@ -272,16 +233,33 @@ function renderResult(result: QueryResult): string {
   `;
 }
 
-async function init() {
-  const overview = await api<Overview>("/api/overview");
-  const demoQueries = await api<{ queries: string[] }>("/api/demo-queries");
-  const docs = await api<{ files: string[] }>("/api/source-docs");
-  const okf = await api<{
-    concepts: Array<{ id: string; title: string; type: string }>;
-  }>("/api/okf/concepts");
+function init() {
+  const usecases = [
+    {
+      title: "Document RAG in KV cache",
+      summary:
+        "Unstructured ops memos and incident notes are chunked and stored in a key-value cache for lexical/semantic retrieval.",
+    },
+    {
+      title: "Curated OKF artifacts",
+      summary:
+        "Metrics, tables, policies, playbooks, and attested computations live as markdown + YAML frontmatter per Google OKF v0.2.",
+    },
+    {
+      title: "Hybrid Graph RAG answers",
+      summary:
+        "A user query retrieves narrative snippets, expands the OKF concept graph, and filters by trust/lifecycle before synthesis.",
+    },
+  ];
 
-  const usecaseList = document.querySelector("#usecase-list")!;
-  usecaseList.innerHTML = overview.usecases
+  const formats = [
+    { field: "type", required: true, meaning: "Concept kind (Metric, Playbook, Attested Computation, …)" },
+    { field: "sources / generated / verified", required: false, meaning: "Provenance and trust signals (OKF v0.2)" },
+    { field: "status / stale_after", required: false, meaning: "Lifecycle and freshness" },
+    { field: "executor / attester", required: false, meaning: "Attested Computation contract" },
+  ];
+
+  document.querySelector("#usecase-list")!.innerHTML = usecases
     .map(
       (u) => `
       <article class="usecase">
@@ -292,14 +270,13 @@ async function init() {
     .join("");
 
   document.querySelector("#stats")!.innerHTML = `
-    <div><strong>${overview.stats.sourceDocs}</strong>source docs</div>
-    <div><strong>${overview.stats.kvChunks}</strong>KV chunks</div>
-    <div><strong>${overview.stats.okfConcepts}</strong>OKF concepts</div>
-    <div><strong>${overview.stats.okfEdges}</strong>graph edges</div>
+    <div><strong>${corpus.stats.sourceDocs}</strong>source docs</div>
+    <div><strong>${corpus.stats.kvChunks}</strong>KV chunks</div>
+    <div><strong>${corpus.stats.okfConcepts}</strong>OKF concepts</div>
+    <div><strong>${corpus.stats.okfEdges}</strong>graph edges</div>
   `;
 
-  const tbody = document.querySelector("#format-table tbody")!;
-  tbody.innerHTML = overview.formats
+  document.querySelector("#format-table tbody")!.innerHTML = formats
     .map(
       (f) => `
       <tr>
@@ -312,33 +289,25 @@ async function init() {
 
   const input = document.querySelector<HTMLTextAreaElement>("#query-input")!;
   const chips = document.querySelector("#query-chips")!;
-  chips.innerHTML = demoQueries.queries
-    .map(
-      (q) =>
-        `<button type="button" class="chip" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`,
-    )
+  chips.innerHTML = corpus.demoQueries
+    .map((q) => `<button type="button" class="chip" data-q="${escapeHtml(q)}">${escapeHtml(q)}</button>`)
     .join("");
 
   chips.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
     if (!(target instanceof HTMLButtonElement)) return;
     input.value = target.dataset.q ?? "";
-    chips
-      .querySelectorAll(".chip")
-      .forEach((el) => el.classList.toggle("active", el === target));
+    chips.querySelectorAll(".chip").forEach((el) => el.classList.toggle("active", el === target));
   });
 
   const status = document.querySelector<HTMLSpanElement>("#query-status")!;
   const resultRoot = document.querySelector("#query-result")!;
-  const run = async () => {
+  const run = () => {
     const query = input.value.trim();
     if (!query) return;
     status.hidden = false;
     try {
-      const result = await api<QueryResult>("/api/query", {
-        method: "POST",
-        body: JSON.stringify({ query }),
-      });
+      const result = answerQuery(query, concepts, edges, chunks);
       resultRoot.innerHTML = renderResult(result);
     } catch (error) {
       resultRoot.innerHTML = `<p class="muted">Query failed: ${escapeHtml(String(error))}</p>`;
@@ -347,40 +316,31 @@ async function init() {
     }
   };
 
-  document.querySelector("#run-query")!.addEventListener("click", () => void run());
+  document.querySelector("#run-query")!.addEventListener("click", run);
 
   const docSelect = document.querySelector<HTMLSelectElement>("#doc-select")!;
   const docView = document.querySelector("#doc-view")!;
-  docSelect.innerHTML = docs.files
+  const docFiles = Object.keys(sourceDocs).sort();
+  docSelect.innerHTML = docFiles
     .map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`)
     .join("");
-  const loadDoc = async () => {
-    const path = docSelect.value;
-    const doc = await api<{ text: string }>(`/api/source-docs/${encodeURIComponent(path)}`);
-    docView.textContent = doc.text;
+  const loadDoc = () => {
+    docView.textContent = sourceDocs[docSelect.value] ?? "";
   };
-  docSelect.addEventListener("change", () => void loadDoc());
-  await loadDoc();
+  docSelect.addEventListener("change", loadDoc);
+  loadDoc();
 
   const okfSelect = document.querySelector<HTMLSelectElement>("#okf-select")!;
   const okfView = document.querySelector("#okf-view")!;
-  okfSelect.innerHTML = okf.concepts
+  okfSelect.innerHTML = concepts
     .map(
       (c) =>
         `<option value="${escapeHtml(c.id)}">${escapeHtml(c.type)} — ${escapeHtml(c.title)}</option>`,
     )
     .join("");
-  const loadOkf = async () => {
-    const id = okfSelect.value;
-    const concept = await api<{
-      id: string;
-      title: string;
-      type: string;
-      status: string;
-      trustTier: string;
-      layers: Record<string, unknown>;
-      raw: string;
-    }>(`/api/okf/concept?id=${encodeURIComponent(id)}`);
+  const loadOkf = () => {
+    const concept = concepts.find((c) => c.id === okfSelect.value);
+    if (!concept) return;
     okfView.innerHTML = `
       <div class="snippet">
         <header>
@@ -405,17 +365,12 @@ async function init() {
         </div>
       </div>`;
   };
-  okfSelect.addEventListener("change", () => void loadOkf());
-  // Prefer gross-margin as default showcase concept
-  const preferred = okf.concepts.find((c) => c.id === "metrics/gross-margin");
+  okfSelect.addEventListener("change", loadOkf);
+  const preferred = concepts.find((c) => c.id === "metrics/gross-margin");
   if (preferred) okfSelect.value = preferred.id;
-  await loadOkf();
+  loadOkf();
 
-  // Prefill first demo query
-  input.value = demoQueries.queries[0] ?? "";
+  input.value = corpus.demoQueries[0] ?? "";
 }
 
-init().catch((error) => {
-  console.error(error);
-  app.innerHTML = `<div class="shell"><p class="muted">Failed to boot UI: ${String(error)}</p></div>`;
-});
+init();
