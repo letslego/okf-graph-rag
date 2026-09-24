@@ -10,8 +10,8 @@ import { answerQuery } from "./query.js";
 import { ingestSourceDocs, type RagChunk } from "./rag.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Dev (tsx server/) → repo root; prod (dist/server/) → repo root
-const root = path.resolve(__dirname, path.basename(__dirname) === "server" && !__dirname.includes(`${path.sep}dist${path.sep}`) ? ".." : "../..");
+const runningFromDist = __dirname.includes(`${path.sep}dist${path.sep}`);
+const root = path.resolve(__dirname, runningFromDist ? "../.." : "..");
 const contentRoot = path.join(root, "content");
 const okfRoot = path.join(contentRoot, "okf");
 const docsRoot = path.join(contentRoot, "source-docs");
